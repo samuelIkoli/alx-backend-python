@@ -10,8 +10,8 @@ def connect_db():
     try:
         connection = mysql.connector.connect(
             host='localhost',
-            user='root',
-            password='your_password'   # <-- replace with your MySQL password
+            user='alx',
+            password='password'   # <-- replace with your MySQL password
         )
         if connection.is_connected():
             print("Connected to MySQL server")
@@ -40,8 +40,8 @@ def connect_to_prodev():
     try:
         connection = mysql.connector.connect(
             host='localhost',
-            user='root',
-            password='your_password',  # <-- replace with your MySQL password
+            user='alx',
+            password='password',  # <-- replace with your MySQL password
             database='ALX_prodev'
         )
         if connection.is_connected():
