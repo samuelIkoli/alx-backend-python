@@ -3,7 +3,7 @@ from mysql.connector import Error
 from functools import wraps
 import time
 
-def log_db_queries(func):
+def log_queries(func):
     """
     Decorator that logs SQL queries executed by a function
     using mysql.connector instead of Django ORM.

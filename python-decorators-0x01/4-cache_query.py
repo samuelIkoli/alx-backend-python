@@ -6,7 +6,7 @@ import time
 # In-memory cache store
 _cache_store = {}
 
-def cache_db_results(ttl=60):
+def cache_query(ttl=60):
     """
     Decorator that caches results of database queries
     to avoid redundant DB calls.

@@ -3,7 +3,7 @@ import mysql.connector
 from mysql.connector import Error, OperationalError, InterfaceError, DatabaseError
 from functools import wraps
 
-def retry_on_transient_errors(max_retries=3, delay=1, backoff=2):
+def retry_on_failure(max_retries=3, delay=2, backoff=2):
     """
     Decorator that retries a database operation if it fails due to transient errors.
     - max_retries: number of times to retry
