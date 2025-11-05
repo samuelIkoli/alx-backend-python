@@ -1,31 +1,50 @@
+import mysql.connector
+from mysql.connector import Error
 from functools import wraps
-from django.db import connection
+import time
 
 def log_db_queries(func):
     """
-    Decorator that logs all SQL queries executed by a function.
+    Decorator that logs SQL queries executed by a function
+    using mysql.connector instead of Django ORM.
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
-        # Clear previous queries
-        connection.queries_log.clear() if hasattr(connection, 'queries_log') else None
+        connection = None
+        cursor = None
 
-        # Record initial query count
-        before = len(connection.queries)
+        try:
+            # Connect to MySQL
+            connection = mysql.connector.connect(
+                host='localhost',
+                user='root',
+                password='your_password',  # <-- replace with your password
+                database='ALX_prodev'
+            )
+            cursor = connection.cursor()
 
-        result = func(*args, **kwargs)
+            print(f"🔗 Connected to MySQL for '{func.__name__}'")
 
-        # Capture new queries executed by the function
-        after = len(connection.queries)
-        executed = connection.queries[before:after]
+            # Start timing
+            start_time = time.time()
 
-        if executed:
-            print(f"\n📘 Database queries executed by '{func.__name__}':")
-            for i, query in enumerate(executed, start=1):
-                print(f"  {i}. {query['sql']} (Time: {query['time']}s)")
-        else:
-            print(f"\n✅ '{func.__name__}' executed with no database queries.")
+            # Pass the cursor or connection to the wrapped function
+            result = func(*args, connection=connection, cursor=cursor, **kwargs)
 
-        return result
+            # End timing
+            elapsed = time.time() - start_time
+            print(f"✅ '{func.__name__}' executed successfully in {elapsed:.4f}s")
+
+            return result
+
+        except Error as e:
+            print(f"❌ Database error in '{func.__name__}': {e}")
+
+        finally:
+            if cursor:
+                cursor.close()
+            if connection and connection.is_connected():
+                connection.close()
+                print(f"🔒 MySQL connection closed for '{func.__name__}'")
 
     return wrapper
