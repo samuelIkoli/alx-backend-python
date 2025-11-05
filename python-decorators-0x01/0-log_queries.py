@@ -2,6 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 from functools import wraps
 import time
+from datetime import datetime
 
 def log_queries(func):
     """
