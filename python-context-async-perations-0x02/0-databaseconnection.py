@@ -37,3 +37,7 @@ class DatabaseConnection:
             print("🔒 Database connection closed.")
         # Return False to re-raise any exception that occurs inside the with block
         return False
+
+with DatabaseConnection(...) as cursor:
+    cursor.execute("SELECT * FROM users")
+    print(cursor.fetchall())
