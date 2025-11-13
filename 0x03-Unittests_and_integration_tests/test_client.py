@@ -29,8 +29,11 @@ class TestGithubOrgClient(unittest.TestCase):
         expected_url = f"https://api.github.com/orgs/{org_name}"
         mock_get_json.assert_called_once_with(expected_url)
 
-        # Assert result is mock return value
-        self.assertEqual(result, expected_value)
+        # Test memoization - call again
+        result2 = client.org()
+        self.assertEqual(result2, expected_value)
+        # should still be called once due to memoization
+        mock_get_json.assert_called_once()
 
     def test_public_repos_url(self):
         """Test that _public_repos_url returns the expected URL."""
