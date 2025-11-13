@@ -16,7 +16,8 @@ class TestGithubOrgClient(unittest.TestCase):
         """Test that GithubOrgClient.org returns the correct value."""
 
         # Setup mock return value
-        mock_get_json.return_value = {"payload": True}
+        expected_value = {"login": org_name}
+        mock_get_json.return_value = expected_value
 
         # Instantiate client
         client = GithubOrgClient(org_name)
