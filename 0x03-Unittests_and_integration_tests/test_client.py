@@ -91,37 +91,69 @@ class TestGithubOrgClient(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
-@parameterized_class(
-    ("org_payload", "repos_payload", "expected_repos", "apache2_repos"),
-    TEST_PAYLOAD
-)
+@parameterized_class([
+    {
+        'org_payload': TEST_PAYLOAD[0][0],
+        'repos_payload': TEST_PAYLOAD[0][1],
+        'expected_repos': TEST_PAYLOAD[0][2],
+        'apache2_repos': TEST_PAYLOAD[0][3]
+    }
+])
 class TestIntegrationGithubOrgClient(unittest.TestCase):
+    """Test class for GithubOrgClient integration tests"""
 
     @classmethod
     def setUpClass(cls):
-        """Start patcher for requests.get"""
+        """Set up class method to mock requests.get"""
+        # Start a patcher for requests.get
+        cls.get_patcher = patch('requests.get')
 
-        def fake_get(url):
-            mock = Mock()
-            if url == "https://api.github.com/orgs/google":
-                mock.json.return_value = cls.org_payload
-            elif url == cls.org_payload["repos_url"]:
-                mock.json.return_value = cls.repos_payload
-            else:
-                mock.json.return_value = {}
-            return mock
+        # Start the mock
+        cls.mock_get = cls.get_patcher.start()
 
-        cls.get_patcher = patch("client.requests.get", side_effect=fake_get)
-        cls.get_patcher.start()
+        # Define side_effect function to return different payloads based on URL
+        def side_effect(url):
+            class MockResponse:
+                @staticmethod
+                def json():
+                    if url.endswith('/orgs/test-org'):
+                        return cls.org_payload
+                    elif url.endswith('/repos'):
+                        return cls.repos_payload
+                    else:
+                        return None
+
+            return MockResponse()
+
+        # Set the side_effect for the mock
+        cls.mock_get.side_effect = side_effect
 
     @classmethod
     def tearDownClass(cls):
+        """Tear down class method to stop the patcher"""
+        # Stop the patcher
         cls.get_patcher.stop()
 
     def test_public_repos(self):
-        client = GithubOrgClient("google")
-        self.assertEqual(client.public_repos(), self.expected_repos)
+        """Test public_repos method in integration"""
+        # Create client instance
+        client = GithubOrgClient("test-org")
+
+        # Call public_repos method
+        result = client.public_repos()
+
+        # Assert the result matches expected_repos
+        self.assertEqual(result, self.expected_repos)
 
     def test_public_repos_with_license(self):
-        client = GithubOrgClient("google")
-        self.assertEqual(client.public_repos("apache-2.0"), self.apache2_repos)
+        """Test public_repos method with license filter in integration"""
+        # Create client instance
+        client = GithubOrgClient("test-org")
+
+        # Call public_repos method with license filter
+        result = client.public_repos(license="apache-2.0")
+
+        # Assert the result matches apache2_repos
+        self.assertEqual(result, self.apache2_repos)
+if __name__ == "__main__":
+    unittest.main()
