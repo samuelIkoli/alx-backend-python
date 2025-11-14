@@ -33,7 +33,7 @@ class TestGithubOrgClient(unittest.TestCase):
         mock_get_json.assert_called_once_with(expected_url)
 
         # Test memoization - call again
-        result2 = client.org()
+        result2 = client.org
         self.assertEqual(result2, expected_value)
         # should still be called once due to memoization
         mock_get_json.assert_called_once()
