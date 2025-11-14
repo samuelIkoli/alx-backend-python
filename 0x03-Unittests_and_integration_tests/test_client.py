@@ -92,6 +92,36 @@ def test_public_repos(self, mock_get_json):
         mock_prop.assert_called_once()
         mock_get_json.assert_called_once()
 
+    @patch("client.get_json")
+    def test_public_repos(self, mock_get_json):
+        """Test public_repos returns the correct repo names."""
+        
+        # Mocked payload returned by get_json
+        mock_get_json.return_value = [
+            {"name": "repo1", "license": {"key": "mit"}},
+            {"name": "repo2", "license": {"key": "apache-2.0"}},
+            {"name": "repo3"},
+        ]
+
+        # Patch the _public_repos_url property
+        with patch.object(
+            GithubOrgClient,
+            "_public_repos_url",
+            new_callable=PropertyMock,
+            return_value="https://api.github.com/orgs/testorg/repos"
+        ) as mock_prop:
+
+            client = GithubOrgClient("testorg")
+            result = client.public_repos()
+
+            # Expected repo names
+            expected = ["repo1", "repo2", "repo3"]
+            
+            # Assertions
+            self.assertEqual(result, expected)
+            mock_prop.assert_called_once()
+            mock_get_json.assert_called_once()
+
 
     @parameterized.expand([
         ({"license": {"key": "my_license"}}, "my_license", True),
