@@ -178,7 +178,7 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
         result = client.public_repos("apache-2.0")
 
         # apache2_repos comes from the fixture
-        self.assertEqual(result, self.apache2_repos)    
+        self.assertEqual(result, self.apache2_repos)
 
 
 if __name__ == "__main__":
