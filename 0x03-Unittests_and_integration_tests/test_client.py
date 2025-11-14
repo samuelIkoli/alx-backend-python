@@ -85,11 +85,16 @@ class TestGithubOrgClient(unittest.TestCase):
         ({"license": {"key": "my_license"}}, "my_license", True),
         ({"license": {"key": "other_license"}}, "my_license", False),
     ])
-    def test_has_license(self, repo, license_key, expected):
-        """Test the has_license static method."""
+    def test_has_license(self, repo, license_key, expected_result):
+        """Test that has_license returns the correct boolean value"""
+        # Create a client instance (license_key doesn't matter for this test)
         client = GithubOrgClient("test-org")
+
+        # Call the has_license method with the test parameters
         result = client.has_license(repo, license_key)
-        self.assertEqual(result, expected)
+
+        # Assert the result matches the expected value
+        self.assertEqual(result, expected_result)
 
 
 @parameterized_class(
