@@ -87,7 +87,8 @@ class TestGithubOrgClient(unittest.TestCase):
     ])
     def test_has_license(self, repo, license_key, expected):
         """Test the has_license static method."""
-        result = GithubOrgClient.has_license(repo, license_key)
+        client = GithubOrgClient.has_license("test-org")
+        result = client(repo, license_key)
         self.assertEqual(result, expected)
 
 
