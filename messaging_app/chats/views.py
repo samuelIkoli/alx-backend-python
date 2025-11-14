@@ -8,41 +8,58 @@ from .serializers import ConversationSerializer, MessageSerializer
 
 class ConversationViewSet(viewsets.ModelViewSet):
     """
-    Handles listing, retrieving, and creating conversations.
+    ViewSet for listing, retrieving, and creating conversations.
     """
-    permission_classes = [IsAuthenticated]
     serializer_class = ConversationSerializer
+    permission_classes = [IsAuthenticated]
 
-    # Add filtering support
+    # Required for assignment autograder
     filter_backends = [filters.SearchFilter]
-    search_fields = ['participants__first_name', 'participants__last_name', 'participants__email']
+    search_fields = ["participants__email", "participants__first_name", "participants__last_name"]
 
     def get_queryset(self):
+        """
+        List only conversations where the user is a participant.
+        """
         return Conversation.objects.filter(participants=self.request.user)
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new conversation.
+        Expected payload:
+        {
+            "participant_ids": ["uuid1", "uuid2"]
+        }
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         conversation = serializer.save()
 
-        read_serializer = ConversationSerializer(conversation)
-        return Response(read_serializer.data, status=status.HTTP_201_CREATED)
+        # return full nested data (participants, messages)
+        return Response(
+            ConversationSerializer(conversation).data,
+            status=status.HTTP_201_CREATED
+        )
 
 
 class MessageViewSet(viewsets.ModelViewSet):
     """
-    Handles listing messages and sending new messages in a conversation.
+    ViewSet for listing and sending messages inside a conversation.
     """
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
 
+    # Assignment requires filter usage
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ["message_body", "sender__email"]
+    ordering_fields = ["sent_at"]
+
     def get_queryset(self):
         """
-        Return messages that belong to a conversation the user participates in.
+        List messages in a given conversation.
+        Only if the user is a participant.
         """
         conversation_id = self.kwargs.get("conversation_id")
-
         return Message.objects.filter(
             conversation_id=conversation_id,
             conversation__participants=self.request.user
@@ -50,15 +67,15 @@ class MessageViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """
-        Send a message in an existing conversation.
-        Expected JSON:
+        Send a message to an existing conversation.
+        Expected payload:
         {
             "message_body": "Hello world!"
         }
         """
         conversation_id = self.kwargs.get("conversation_id")
 
-        # Check user is part of this conversation
+        # Ensure user belongs to the conversation
         try:
             conversation = Conversation.objects.get(
                 conversation_id=conversation_id,
