@@ -108,15 +108,6 @@ class TestGithubOrgClient(unittest.TestCase):
         # Assert the result matches the expected value
         self.assertEqual(result, expected_result)
 
-    def test_public_repos_with_license(self):
-        """Integration test for public_repos with a license filter."""
-        client = GithubOrgClient("google")
-
-        result = client.public_repos("apache-2.0")
-
-        # apache2_repos comes from the fixture
-        self.assertEqual(result, self.apache2_repos)
-
 
 @parameterized_class(
     ("org_payload", "repos_payload", "expected_repos", "apache2_repos"),
@@ -167,6 +158,15 @@ class TestIntegrationGithubOrgClient(unittest.TestCase):
 
         # Assert the result matches expected_repos
         self.assertEqual(result, self.expected_repos)
+
+    def test_public_repos_with_license(self):
+        """Integration test for public_repos with a license filter."""
+        client = GithubOrgClient("google")
+
+        result = client.public_repos("apache-2.0")
+
+        # apache2_repos comes from the fixture
+        self.assertEqual(result, self.apache2_repos)    
 
 
 if __name__ == "__main__":
