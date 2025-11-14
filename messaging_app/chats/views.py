@@ -1,4 +1,4 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -9,33 +9,23 @@ from .serializers import ConversationSerializer, MessageSerializer
 class ConversationViewSet(viewsets.ModelViewSet):
     """
     Handles listing, retrieving, and creating conversations.
-    Uses a single serializer for both read & write.
     """
     permission_classes = [IsAuthenticated]
     serializer_class = ConversationSerializer
 
+    # Add filtering support
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['participants__first_name', 'participants__last_name', 'participants__email']
+
     def get_queryset(self):
-        """
-        Only return conversations where the authenticated user is a participant.
-        """
         return Conversation.objects.filter(participants=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        """
-        Create a new conversation.
-        
-        Expected JSON:
-        {
-            "participant_ids": ["uuid1", "uuid2"]
-        }
-        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Save conversation (participants already handled in serializer)
         conversation = serializer.save()
 
-        # Return fully nested representation
         read_serializer = ConversationSerializer(conversation)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 
