@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+
+"""
+This module contains unit and integration tests for the GithubOrgClient class.
+The tests verify the behavior of the client’s methods by mocking external
+requests and using predefined fixtures to simulate GitHub API responses.
+"""
+
 import unittest
 from unittest.mock import Mock, patch, PropertyMock
 from parameterized import parameterized, parameterized_class
@@ -7,6 +14,11 @@ from fixtures import TEST_PAYLOAD
 
 
 class TestGithubOrgClient(unittest.TestCase):
+    """
+    This class contains unit tests for the GithubOrgClient class. The tests
+    check isolated behavior by mocking network calls and verifying correctness
+    of URL construction, memoization, and repository processing.
+    """
 
     @parameterized.expand([
         ("google",),
