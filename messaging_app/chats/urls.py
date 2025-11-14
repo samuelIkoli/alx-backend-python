@@ -1,15 +1,9 @@
+from django.contrib import admin
 from django.urls import path, include
-from rest_framework import routers
-from .views import ConversationViewSet, MessageViewSet
-
-router = routers.DefaultRouter()
-router.register("conversations", ConversationViewSet, basename="conversations")
 
 urlpatterns = [
-    path("", include(router.urls)),
-    path(
-        "conversations/<uuid:conversation_id>/messages/",
-        MessageViewSet.as_view({"get": "list", "post": "create"}),
-        name="conversation-messages"
-    ),
+    path('admin/', admin.site.urls),
+
+    # REQUIRED: must contain "api/"
+    path('api/', include('chats.urls')),
 ]
