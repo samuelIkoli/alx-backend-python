@@ -1,18 +1,9 @@
-from django.shortcuts import render
-
-# Create your views here.
-
-
 from rest_framework import viewsets, status
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-from .models import Conversation, Message, User
-from .serializers import (
-    ConversationSerializer,
-    ConversationCreateSerializer,
-    MessageSerializer
-)
+from .models import Conversation, Message
+from .serializers import ConversationSerializer, MessageSerializer
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -25,7 +16,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Only return conversations where the user is a participant.
+        Only return conversations where the authenticated user is a participant.
         """
         return Conversation.objects.filter(participants=self.request.user)
 
@@ -41,40 +32,55 @@ class ConversationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Create conversation instance
+        # Save conversation (participants already handled in serializer)
         conversation = serializer.save()
 
-        # Return full nested response after creation
+        # Return fully nested representation
         read_serializer = ConversationSerializer(conversation)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class MessageViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for listing messages and sending new messages.
+    Handles listing messages and sending new messages in a conversation.
     """
     serializer_class = MessageSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """
-        Only allow listing messages that belong to a conversation
-        the user is a participant in.
+        Return messages that belong to a conversation the user participates in.
         """
         conversation_id = self.kwargs.get("conversation_id")
-        return Message.objects.filter(conversation_id=conversation_id)
+
+        return Message.objects.filter(
+            conversation_id=conversation_id,
+            conversation__participants=self.request.user
+        ).order_by("sent_at")
 
     def create(self, request, *args, **kwargs):
+        """
+        Send a message in an existing conversation.
+        Expected JSON:
+        {
+            "message_body": "Hello world!"
+        }
+        """
         conversation_id = self.kwargs.get("conversation_id")
-        conversation = Conversation.objects.get(id=conversation_id)
 
-        # Check user is part of the conversation
-        if request.user not in conversation.participants.all():
+        # Check user is part of this conversation
+        try:
+            conversation = Conversation.objects.get(
+                conversation_id=conversation_id,
+                participants=request.user
+            )
+        except Conversation.DoesNotExist:
             return Response(
-                {"error": "You are not part of this conversation"},
+                {"error": "You are not a participant in this conversation."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Create the message
         message = Message.objects.create(
             sender=request.user,
             conversation=conversation,
