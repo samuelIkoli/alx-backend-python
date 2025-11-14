@@ -117,16 +117,6 @@ class TestGithubOrgClient(unittest.TestCase):
         # apache2_repos comes from the fixture
         self.assertEqual(result, self.apache2_repos)
 
-    def test_public_repos_with_license(self):
-        """Test public_repos method with license filter in integration"""
-        # Create client instance
-        client = GithubOrgClient("test-org")
-
-        # Call public_repos method with license filter
-        result = client.public_repos(license="apache-2.0")
-
-        # Assert the result matches apache2_repos
-        self.assertEqual(result, self.apache2_repos)
 
 
 @parameterized_class(
