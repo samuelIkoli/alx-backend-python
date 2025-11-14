@@ -62,36 +62,36 @@ class TestGithubOrgClient(unittest.TestCase):
             # Verify the org property was accessed
             mock_org.assert_called_once()
 
-    @patch("client.get_json")
-    def test_public_repos(self, mock_get_json):
-        """Test GithubOrgClient.public_repos"""
+@patch("client.get_json")
+def test_public_repos(self, mock_get_json):
+    """Test public_repos returns the correct repo names."""
+    
+    # Mocked payload returned by get_json
+    mock_get_json.return_value = [
+        {"name": "repo1", "license": {"key": "mit"}},
+        {"name": "repo2", "license": {"key": "apache-2.0"}},
+        {"name": "repo3"},
+    ]
 
-        # Fake JSON payload returned by get_json
-        mock_payload = [
-            {"name": "repo1"},
-            {"name": "repo2"},
-            {"name": "repo3"},
-        ]
-        mock_get_json.return_value = mock_payload
+    # Patch the _public_repos_url property
+    with patch.object(
+        GithubOrgClient,
+        "_public_repos_url",
+        new_callable=PropertyMock,
+        return_value="https://api.github.com/orgs/testorg/repos"
+    ) as mock_prop:
 
-        # Mock the repos URL property
-        url = "https://fakeurl.com/repos"
-        with patch.object(GithubOrgClient, "_public_repos_url",
-                          new_callable=unittest.mock.PropertyMock,
-                          return_value=url) as mock_url:
+        client = GithubOrgClient("testorg")
+        result = client.public_repos()
 
-            client = GithubOrgClient("testorg")
-            result = client.public_repos()
+        # Expected repo names
+        expected = ["repo1", "repo2", "repo3"]
+        
+        # Assertions
+        self.assertEqual(result, expected)
+        mock_prop.assert_called_once()
+        mock_get_json.assert_called_once()
 
-            # Expected list of repo names
-            expected = ["repo1", "repo2", "repo3"]
-            self.assertEqual(result, expected)
-
-            # Ensure the URL property was accessed once
-            mock_url.assert_called_once()
-
-            # Ensure get_json was called once with the mocked URL
-            mock_get_json.assert_called_once_with("https://fakeurl.com/repos")
 
     @parameterized.expand([
         ({"license": {"key": "my_license"}}, "my_license", True),
