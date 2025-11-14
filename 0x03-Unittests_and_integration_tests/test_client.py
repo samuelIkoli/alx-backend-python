@@ -37,7 +37,6 @@ class TestGithubOrgClient(unittest.TestCase):
         self.assertEqual(result2, expected_value)
         # should still be called once due to memoization
         mock_get_json.assert_called_once()
-        mock_get_json.assert_not_called()
 
     def test_public_repos_url(self):
         """Test that _public_repos_url returns the expected URL."""
