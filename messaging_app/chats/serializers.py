@@ -7,7 +7,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'full_name', 'phone_number', 'role', 'created_at']
+        fields = ['user_id', 'email', 'first_name', 'last_name', 'full_name' 'phone_number', 'role', 'created_at']
 
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}"
@@ -20,8 +20,8 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = [
-            'id',
-            'sender',
+            'message_id',
+            'sender_id',
             'sender_name',
             'message_body',
             'sent_at',
@@ -46,8 +46,8 @@ class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = [
-            'id',
-            'participants',
+            'conversation_id',
+            'participants_id',
             'messages',
             'message_count',
             'created_at'
