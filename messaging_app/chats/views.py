@@ -4,6 +4,8 @@ from rest_framework.response import Response
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
+from .permissions import IsConversationParticipant, IsMessageParticipant
+
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -11,7 +13,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
     ViewSet for listing, retrieving, and creating conversations.
     """
     serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsConversationParticipant]
 
     # Required for assignment autograder
     filter_backends = [filters.SearchFilter]
@@ -47,7 +49,7 @@ class MessageViewSet(viewsets.ModelViewSet):
     ViewSet for listing and sending messages inside a conversation.
     """
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsMessageParticipant]
 
     # Assignment requires filter usage
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
