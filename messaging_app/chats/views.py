@@ -4,7 +4,9 @@ from rest_framework.response import Response
 
 from .models import Conversation, Message
 from .serializers import ConversationSerializer, MessageSerializer
-from .permissions import IsConversationParticipant, IsMessageParticipant
+from .permissions import IsParticipantOfConversation, IsMessageParticipant
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import MessageFilter
 
 
 
@@ -13,17 +15,22 @@ class ConversationViewSet(viewsets.ModelViewSet):
     ViewSet for listing, retrieving, and creating conversations.
     """
     serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticated, IsConversationParticipant]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Required for assignment autograder
-    filter_backends = [filters.SearchFilter]
-    search_fields = ["participants__email", "participants__first_name", "participants__last_name"]
+    # Pagination automatically picks up PAGE_SIZE = 20 from settings.py
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = MessageFilter
+
+    search_fields = ["message_body", "sender__email"]
+    ordering_fields = ["sent_at"]
 
     def get_queryset(self):
-        """
-        List only conversations where the user is a participant.
-        """
-        return Conversation.objects.filter(participants=self.request.user)
+        conversation_id = self.kwargs.get("conversation_conversation_id")
+
+        return Message.objects.filter(
+            conversation_id=conversation_id,
+            conversation__participants=self.request.user
+        ).order_by("-sent_at")     # most recent first
 
     def create(self, request, *args, **kwargs):
         """
