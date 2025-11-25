@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime
-from django.http import HttpResponseForbidden
+from datetime import datetime, timedelta
+from django.http import HttpResponseForbidden, HttpResponse
 
 
 class RequestLoggingMiddleware:
@@ -50,5 +50,47 @@ class RestrictAccessByTimeMiddleware:
             return HttpResponseForbidden(
                 "Access to messaging is restricted between 9PM and 6AM."
             )
+
+        return self.get_response(request)
+    
+
+class OffensiveLanguageMiddleware:
+    """
+    Middleware that limits number of POST chat messages
+    from the same IP address to 5 per minute.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+        # Store: { ip_address: [timestamps] }
+        self.message_history = {}
+
+    def __call__(self, request):
+        ip = request.META.get("REMOTE_ADDR")
+
+        # We only rate-limit POST requests (sending messages)
+        if request.method == "POST" and "/messages/" in request.path:
+            now = datetime.now()
+
+            # Initialize message history for new IPs
+            if ip not in self.message_history:
+                self.message_history[ip] = []
+
+            # Remove timestamps older than 1 minute
+            one_minute_ago = now - timedelta(minutes=1)
+            self.message_history[ip] = [
+                ts for ts in self.message_history[ip] if ts > one_minute_ago
+            ]
+
+            # Check if limit exceeded
+            if len(self.message_history[ip]) >= 5:
+                return HttpResponse(
+                    "Rate limit exceeded: You can only send 5 messages per minute.",
+                    status=429
+                )
+
+            # Add current request timestamp
+            self.message_history[ip].append(now)
 
         return self.get_response(request)
