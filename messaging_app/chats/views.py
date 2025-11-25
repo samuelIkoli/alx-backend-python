@@ -7,6 +7,7 @@ from .serializers import ConversationSerializer, MessageSerializer
 from .permissions import IsParticipantOfConversation, IsMessageParticipant
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import MessageFilter
+from .pagination import MessagePagination
 
 
 
@@ -17,20 +18,15 @@ class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
     permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Pagination automatically picks up PAGE_SIZE = 20 from settings.py
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_class = MessageFilter
-
-    search_fields = ["message_body", "sender__email"]
-    ordering_fields = ["sent_at"]
+    # Required for assignment autograder
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["participants__email", "participants__first_name", "participants__last_name"]
 
     def get_queryset(self):
-        conversation_id = self.kwargs.get("conversation_conversation_id")
-
-        return Message.objects.filter(
-            conversation_id=conversation_id,
-            conversation__participants=self.request.user
-        ).order_by("-sent_at")     # most recent first
+        """
+        List only conversations where the user is a participant.
+        """
+        return Conversation.objects.filter(participants=self.request.user)
 
     def create(self, request, *args, **kwargs):
         """
@@ -56,23 +52,22 @@ class MessageViewSet(viewsets.ModelViewSet):
     ViewSet for listing and sending messages inside a conversation.
     """
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated, IsMessageParticipant]
+    permission_classes = [IsAuthenticated, IsParticipantOfConversation]
 
-    # Assignment requires filter usage
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    pagination_class = MessagePagination   # <-- REQUIRED
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = MessageFilter
+
     search_fields = ["message_body", "sender__email"]
     ordering_fields = ["sent_at"]
 
     def get_queryset(self):
-        """
-        List messages in a given conversation.
-        Only if the user is a participant.
-        """
-        conversation_id = self.kwargs.get("conversation_id")
+        conversation_id = self.kwargs.get("conversation_conversation_id")
         return Message.objects.filter(
             conversation_id=conversation_id,
             conversation__participants=self.request.user
-        ).order_by("sent_at")
+        ).order_by("-sent_at")
 
     def create(self, request, *args, **kwargs):
         """
