@@ -94,3 +94,29 @@ class OffensiveLanguageMiddleware:
             self.message_history[ip].append(now)
 
         return self.get_response(request)
+    
+class RolepermissionMiddleware:
+    """
+    Middleware that allows only admins or moderators
+    to access protected endpoints.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        user = request.user
+
+        # Only check role if user is authenticated
+        if user.is_authenticated:
+
+            # If your User model uses `role` field: guest/host/admin/moderator
+            user_role = getattr(user, "role", None)
+
+            # Block if user is not admin or moderator
+            if user_role not in ["admin", "moderator"]:
+                return HttpResponseForbidden(
+                    "Access denied: You do not have permission to perform this action."
+                )
+
+        return self.get_response(request)
