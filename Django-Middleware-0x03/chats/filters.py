@@ -12,7 +12,7 @@ class MessageFilter(django_filters.FilterSet):
     
     class Meta:
         model = Message
-        fields = ['conversation', 'sender', 'timestamp', 'is_read']
+        fields = ['conversation', 'sender', 'is_read']
     
     def filter_search(self, queryset, name, value):
         return queryset.filter(content__icontains=value)

@@ -20,10 +20,13 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from chats.auth_views import RegisterView
 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+
+    path("auth/register/", RegisterView.as_view(), name="register"),
 
     # built-in DRF login/logout
     path('api-auth/', include('rest_framework.urls')),
