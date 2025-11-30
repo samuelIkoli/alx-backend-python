@@ -5,6 +5,26 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+# ============================================================
+# Custom Manager for UNREAD messages
+# ============================================================
+
+class UnreadMessagesManager(models.Manager):
+    """
+    Custom manager that returns only unread messages for a user,
+    optimized with .only() to fetch minimal fields.
+    """
+    def unread_for_user(self, user):
+        return (
+            self.get_queryset()
+            .filter(receiver=user, read=False)
+            .only("id", "sender", "receiver", "content", "timestamp")
+        )
+
+
+# ============================================================
+# Message Model
+# ============================================================
 
 class Message(models.Model):
     sender = models.ForeignKey(
@@ -16,7 +36,10 @@ class Message(models.Model):
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    # --- already added in previous tasks (edit tracking) ---
+    # REQUIRED FOR THIS TASK — track read state
+    read = models.BooleanField(default=False)
+
+    # Existing EDIT tracking fields
     edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
     edited_by = models.ForeignKey(
@@ -27,7 +50,7 @@ class Message(models.Model):
         related_name='edited_messages'
     )
 
-    # 🔥 NEW: threaded conversations – self-referential parent
+    # Threaded conversation support
     parent_message = models.ForeignKey(
         'self',
         null=True,
@@ -36,59 +59,41 @@ class Message(models.Model):
         related_name='replies'
     )
 
+    # Attach custom manager
+    objects = models.Manager()               # default manager
+    unread = UnreadMessagesManager()         # custom unread manager
+
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver}"
 
-    # 🔥 NEW: helper to get an optimized queryset for messages + relations
+    # Optimized queryset with relationships
     @classmethod
     def with_related(cls):
-        """
-        Optimized queryset that pulls in sender, receiver, parent_message
-        and prefetches replies to reduce DB queries.
-        """
         return (
             cls.objects
-            .select_related('sender', 'receiver', 'parent_message')  # <-- select_related
-            .prefetch_related('replies')                             # <-- prefetch_related
+            .select_related("sender", "receiver", "parent_message")
+            .prefetch_related("replies")
         )
 
-    # 🔥 NEW: recursive threaded structure for a single message
+    # Recursive threaded conversation tree
     def build_thread_tree(self):
-        """
-        Returns this message and its replies as a nested (threaded) structure.
-
-        Example output shape:
-        {
-            "message": <Message>,
-            "replies": [
-                {
-                    "message": <Reply1>,
-                    "replies": [...]
-                },
-                ...
-            ]
-        }
-        """
-        # Prefetch immediate replies with sender/receiver for efficiency
-        direct_replies = (
-            self.replies
-            .all()
-            .select_related('sender', 'receiver', 'parent_message')
-        )
-
-        def _build_node(msg):
+        def build_node(msg):
             children = (
                 msg.replies
                 .all()
-                .select_related('sender', 'receiver', 'parent_message')
+                .select_related("sender", "receiver", "parent_message")
             )
             return {
                 "message": msg,
-                "replies": [_build_node(child) for child in children]
+                "replies": [build_node(child) for child in children]
             }
 
-        return _build_node(self)
+        return build_node(self)
 
+
+# ============================================================
+# Notification Model
+# ============================================================
 
 class Notification(models.Model):
     user = models.ForeignKey(
@@ -104,10 +109,11 @@ class Notification(models.Model):
         return f"Notification for {self.user} - Message ID {self.message.id}"
 
 
+# ============================================================
+# Message History Model
+# ============================================================
+
 class MessageHistory(models.Model):
-    """
-    Stores previous versions of a message before edits.
-    """
     message = models.ForeignKey(
         Message, related_name='history', on_delete=models.CASCADE
     )
