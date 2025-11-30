@@ -1,33 +1,16 @@
-from django.db.models.signals import pre_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils import timezone
-
-from .models import Message, MessageHistory
+from .models import Message, Notification
 
 
-@receiver(pre_save, sender=Message)
-def log_message_history(sender, instance, **kwargs):
+@receiver(post_save, sender=Message)
+def create_notification(sender, instance, created, **kwargs):
     """
-    BEFORE saving a message, keep a copy of the previous content.
+    Automatically create a notification for the receiver
+    when a new message is created.
     """
-
-    # Only run on updates (existing messages)
-    if not instance.pk:
-        return
-
-    try:
-        old_instance = Message.objects.get(pk=instance.pk)
-    except Message.DoesNotExist:
-        return
-
-    # If content changed → create history record
-    if old_instance.content != instance.content:
-        MessageHistory.objects.create(
-            message=old_instance,
-            old_content=old_instance.content,
-            edited_by=getattr(instance, "edited_by", None)
+    if created:
+        Notification.objects.create(
+            user=instance.receiver,
+            message=instance
         )
-
-        # Update edited flag on main message
-        instance.edited = True
-        instance.edited_at = timezone.now()
