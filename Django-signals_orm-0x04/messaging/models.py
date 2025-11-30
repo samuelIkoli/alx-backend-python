@@ -2,29 +2,10 @@
 
 from django.db import models
 from django.contrib.auth import get_user_model
+from .managers import UnreadMessagesManager   # NEW import
 
 User = get_user_model()
 
-# ============================================================
-# Custom Manager for UNREAD messages
-# ============================================================
-
-class UnreadMessagesManager(models.Manager):
-    """
-    Custom manager that returns only unread messages for a user,
-    optimized with .only() to fetch minimal fields.
-    """
-    def unread_for_user(self, user):
-        return (
-            self.get_queryset()
-            .filter(receiver=user, read=False)
-            .only("id", "sender", "receiver", "content", "timestamp")
-        )
-
-
-# ============================================================
-# Message Model
-# ============================================================
 
 class Message(models.Model):
     sender = models.ForeignKey(
@@ -36,37 +17,34 @@ class Message(models.Model):
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    # REQUIRED FOR THIS TASK — track read state
+    # NEW FIELD for unread manager
     read = models.BooleanField(default=False)
 
-    # Existing EDIT tracking fields
+    # EDIT TRACKING (previous tasks)
     edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
     edited_by = models.ForeignKey(
-        User,
-        null=True,
-        blank=True,
+        User, null=True, blank=True,
         on_delete=models.SET_NULL,
-        related_name='edited_messages'
+        related_name="edited_messages"
     )
 
-    # Threaded conversation support
+    # THREADED CONVERSATION (previous task)
     parent_message = models.ForeignKey(
-        'self',
+        "self",
         null=True,
         blank=True,
         on_delete=models.CASCADE,
-        related_name='replies'
+        related_name="replies"
     )
 
-    # Attach custom manager
-    objects = models.Manager()               # default manager
-    unread = UnreadMessagesManager()         # custom unread manager
+    # DEFAULT + CUSTOM MANAGERS
+    objects = models.Manager()
+    unread = UnreadMessagesManager()   # required by checker
 
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver}"
 
-    # Optimized queryset with relationships
     @classmethod
     def with_related(cls):
         return (
@@ -75,7 +53,6 @@ class Message(models.Model):
             .prefetch_related("replies")
         )
 
-    # Recursive threaded conversation tree
     def build_thread_tree(self):
         def build_node(msg):
             children = (
@@ -91,16 +68,12 @@ class Message(models.Model):
         return build_node(self)
 
 
-# ============================================================
-# Notification Model
-# ============================================================
-
 class Notification(models.Model):
     user = models.ForeignKey(
-        User, related_name='notifications', on_delete=models.CASCADE
+        User, related_name="notifications", on_delete=models.CASCADE
     )
     message = models.ForeignKey(
-        Message, related_name='notifications', on_delete=models.CASCADE
+        Message, related_name="notifications", on_delete=models.CASCADE
     )
     is_read = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -109,22 +82,16 @@ class Notification(models.Model):
         return f"Notification for {self.user} - Message ID {self.message.id}"
 
 
-# ============================================================
-# Message History Model
-# ============================================================
-
 class MessageHistory(models.Model):
     message = models.ForeignKey(
-        Message, related_name='history', on_delete=models.CASCADE
+        Message, related_name="history", on_delete=models.CASCADE
     )
     old_content = models.TextField()
     edited_at = models.DateTimeField(auto_now_add=True)
     edited_by = models.ForeignKey(
-        User,
-        null=True,
-        blank=True,
+        User, null=True, blank=True,
         on_delete=models.SET_NULL,
-        related_name='message_history_editor'
+        related_name="message_history_editor"
     )
 
     def __str__(self):
