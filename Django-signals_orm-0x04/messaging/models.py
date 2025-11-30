@@ -1,3 +1,5 @@
+# messaging/models.py
+
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -14,7 +16,7 @@ class Message(models.Model):
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    # REQUIRED BY CHECKER
+    # --- already added in previous tasks (edit tracking) ---
     edited = models.BooleanField(default=False)
     edited_at = models.DateTimeField(null=True, blank=True)
     edited_by = models.ForeignKey(
@@ -25,8 +27,67 @@ class Message(models.Model):
         related_name='edited_messages'
     )
 
+    # 🔥 NEW: threaded conversations – self-referential parent
+    parent_message = models.ForeignKey(
+        'self',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name='replies'
+    )
+
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver}"
+
+    # 🔥 NEW: helper to get an optimized queryset for messages + relations
+    @classmethod
+    def with_related(cls):
+        """
+        Optimized queryset that pulls in sender, receiver, parent_message
+        and prefetches replies to reduce DB queries.
+        """
+        return (
+            cls.objects
+            .select_related('sender', 'receiver', 'parent_message')  # <-- select_related
+            .prefetch_related('replies')                             # <-- prefetch_related
+        )
+
+    # 🔥 NEW: recursive threaded structure for a single message
+    def build_thread_tree(self):
+        """
+        Returns this message and its replies as a nested (threaded) structure.
+
+        Example output shape:
+        {
+            "message": <Message>,
+            "replies": [
+                {
+                    "message": <Reply1>,
+                    "replies": [...]
+                },
+                ...
+            ]
+        }
+        """
+        # Prefetch immediate replies with sender/receiver for efficiency
+        direct_replies = (
+            self.replies
+            .all()
+            .select_related('sender', 'receiver', 'parent_message')
+        )
+
+        def _build_node(msg):
+            children = (
+                msg.replies
+                .all()
+                .select_related('sender', 'receiver', 'parent_message')
+            )
+            return {
+                "message": msg,
+                "replies": [_build_node(child) for child in children]
+            }
+
+        return _build_node(self)
 
 
 class Notification(models.Model):
@@ -46,7 +107,6 @@ class Notification(models.Model):
 class MessageHistory(models.Model):
     """
     Stores previous versions of a message before edits.
-    REQUIRED FOR CHECKER.
     """
     message = models.ForeignKey(
         Message, related_name='history', on_delete=models.CASCADE
