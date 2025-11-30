@@ -1,19 +1,27 @@
-from django.db.models.signals import post_save, pre_save
+# messaging/signals.py
+
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
+from django.contrib.auth import get_user_model
 
-from .models import Message, Notification, MessageHistory
+from .models import (
+    Message,
+    MessageHistory,
+    Notification,
+)
+
+User = get_user_model()
 
 
-# --------------------------------------------------
-# 1️⃣ EXISTING REQUIREMENT — KEEP THIS
-# Create Notification when a new Message is sent
-# --------------------------------------------------
+# -----------------------------------------------------
+# 1. EXISTING SIGNAL: create notification on new message
+# -----------------------------------------------------
 @receiver(post_save, sender=Message)
 def create_notification(sender, instance, created, **kwargs):
     """
-    Automatically create a notification for the receiver
-    when a new message is created.
+    Existing functionality:
+    Creates a Notification whenever a new Message is created.
     """
     if created:
         Notification.objects.create(
@@ -22,18 +30,15 @@ def create_notification(sender, instance, created, **kwargs):
         )
 
 
-# --------------------------------------------------
-# 2️⃣ NEW REQUIREMENT — ADD THIS
-# Log old message content before it's edited
-# --------------------------------------------------
+# -----------------------------------------------------
+# 2. NEW: pre_save history logger
+# -----------------------------------------------------
 @receiver(pre_save, sender=Message)
 def log_message_history(sender, instance, **kwargs):
     """
-    BEFORE saving a message, store old content in MessageHistory
-    if the message content was changed.
+    Saves a copy of old content into MessageHistory before a message is updated.
     """
-
-    # Only run on updates
+    # Only run for updates, not new messages
     if not instance.pk:
         return
 
@@ -42,7 +47,7 @@ def log_message_history(sender, instance, **kwargs):
     except Message.DoesNotExist:
         return
 
-    # If content changed → log history
+    # Only store history if content changed
     if old_msg.content != instance.content:
         MessageHistory.objects.create(
             message=old_msg,
@@ -50,6 +55,39 @@ def log_message_history(sender, instance, **kwargs):
             edited_by=getattr(instance, "edited_by", None)
         )
 
-        # Mark main message as edited
         instance.edited = True
         instance.edited_at = timezone.now()
+
+
+# -----------------------------------------------------
+# 3. NEW REQUIREMENT: Cleanup related data on user deletion
+# -----------------------------------------------------
+@receiver(post_delete, sender=User)
+def cleanup_user_related_data(sender, instance, **kwargs):
+    """
+    Automatically cleans up:
+    - sent messages
+    - received messages
+    - notifications
+    - message edit histories
+    when a user deletes their account.
+    """
+
+    # Delete messages the user sent
+    sent_messages = Message.objects.filter(sender=instance)
+    for msg in sent_messages:
+        msg.delete()
+
+    # Delete messages the user received
+    received_messages = Message.objects.filter(receiver=instance)
+    for msg in received_messages:
+        msg.delete()
+
+    # Delete notifications
+    Notification.objects.filter(user=instance).delete()
+
+    # Delete all MessageHistory records related to this user
+    MessageHistory.objects.filter(edited_by=instance).delete()
+
+    # If messages were linked via FK CASCADE,
+    # their histories are already removed.
