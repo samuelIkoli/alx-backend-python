@@ -15,6 +15,7 @@ User = get_user_model()
 
 class DeleteUserView(APIView):
     """
+    this is a delete_user view
     Allows an authenticated user to delete their own account.
     After deletion, a post_delete signal will automatically clean up:
     - messages sent
