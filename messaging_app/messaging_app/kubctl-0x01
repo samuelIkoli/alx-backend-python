@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# kubctl-0x01: Scale Django app, verify pods, load test, and monitor resources.
+
+set -e  # Stop if any command fails
+
+DEPLOYMENT_NAME="messaging-app-deployment"
+SERVICE_NAME="messaging-app-service"
+NAMESPACE="default"
+
+echo "🚀 Scaling deployment to 3 replicas..."
+kubectl scale deployment "$DEPLOYMENT_NAME" --replicas=3
+
+echo ""
+echo "⏳ Waiting for pods to start..."
+sleep 5
+
+echo ""
+echo "📦 Current Pods:"
+kubectl get pods -o wide
+
+echo ""
+echo "🔍 Verifying rollout status..."
+kubectl rollout status deployment "$DEPLOYMENT_NAME"
+
+echo ""
+echo "🌐 Checking service details:"
+kubectl get svc "$SERVICE_NAME"
+
+# Port-forward to access Django app locally
+echo ""
+echo "🔁 Setting up port-forward to access service at http://localhost:8000 ..."
+kubectl port-forward service/$SERVICE_NAME 8000:8000 >/tmp/portforward.log 2>&1 &
+PF_PID=$!
+sleep 3
+
+# Check if wrk is installed
+if ! command -v wrk >/dev/null 2>&1; then
+  echo "❌ 'wrk' load testing tool is NOT installed."
+  echo "Install using:"
+  echo "  brew install wrk"
+  kill $PF_PID
+  exit 1
+fi
+
+echo ""
+echo "🔥 Running load test with wrk..."
+wrk -t2 -c50 -d10s http://localhost:8000/
+
+echo ""
+echo "📊 Monitoring resource usage (pods):"
+kubectl top pods || echo "⚠️ Metrics server not installed. Install with: minikube addons enable metrics-server"
+
+# Cleanup port-forward
+kill $PF_PID
+
+echo ""
+echo "✅ Script completed successfully!"
