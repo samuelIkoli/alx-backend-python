@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# kubctl-0x02: Blue-Green deployment helper script for the Django messaging app.
+# - Deploys blue and green versions
+# - Applies services
+# - Checks logs of green pods for errors
+
+set -euo pipefail
+
+BLUE_DEPLOYMENT="messaging-app-blue"
+GREEN_DEPLOYMENT="messaging-app-green"
+NAMESPACE="default"
+
+echo "🚀 Applying BLUE deployment..."
+kubectl apply -f messaging_app/blue_deployment.yaml
+
+echo ""
+echo "🟢 Applying GREEN deployment..."
+kubectl apply -f messaging_app/green_deployment.yaml
+
+echo ""
+echo "🔧 Applying services (blue primary + green test)..."
+kubectl apply -f messaging_app/kubeservice.yaml
+
+echo ""
+echo "⏳ Waiting a few seconds for pods to start..."
+sleep 5
+
+echo ""
+echo "📦 Current pods:"
+kubectl get pods -o wide
+
+echo ""
+echo "🔍 Checking rollout status for BLUE..."
+kubectl rollout status deployment/"$BLUE_DEPLOYMENT" || echo "⚠️ Blue deployment rollout not complete."
+
+echo ""
+echo "🔍 Checking rollout status for GREEN..."
+kubectl rollout status deployment/"$GREEN_DEPLOYMENT" || echo "⚠️ Green deployment rollout not complete."
+
+echo ""
+echo "📜 Fetching logs from GREEN pods to check for errors..."
+GREEN_PODS=$(kubectl get pods -l app=messaging-app,version=green -o jsonpath='{.items[*].metadata.name}')
+
+if [ -z "$GREEN_PODS" ]; then
+  echo "❌ No green pods found. Check the green deployment for issues."
+  exit 1
+fi
+
+for POD in $GREEN_PODS; do
+  echo ""
+  echo "🧾 Logs for green pod: $POD"
+  kubectl logs "$POD" || echo "⚠️ Could not fetch logs for pod $POD"
+done
+
+echo ""
+echo "✅ Blue-Green deployments applied and green logs checked."
+echo "   - Main traffic currently goes to BLUE via 'messaging-app-service'."
+echo "   - GREEN is reachable via 'messaging-app-green-service' (for testing)."

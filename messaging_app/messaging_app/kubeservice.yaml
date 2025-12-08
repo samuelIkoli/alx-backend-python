@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: messaging-app-service
+  labels:
+    app: messaging-app
+    role: primary
+spec:
+  type: ClusterIP
+  selector:
+    app: messaging-app
+    version: blue     # 🔵 currently routing to BLUE deployment
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: messaging-app-green-service
+  labels:
+    app: messaging-app
+    role: green-test
+spec:
+  type: ClusterIP
+  selector:
+    app: messaging-app
+    version: green     # 🟢 routes only to GREEN deployment
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
