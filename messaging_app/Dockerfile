@@ -23,7 +23,7 @@ RUN pip install -r requirements.txt
 # Copy the application code
 COPY . /app/
 
-# Expose Django port
+# Expose Django port -p
 EXPOSE 8000
 
 # Run Django using Gunicorn
