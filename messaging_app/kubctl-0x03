@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# kubctl-0x03: Perform a rolling update on Django messaging app and check for downtime.
+
+set -euo pipefail
+
+DEPLOYMENT="messaging-app-blue"
+SERVICE="messaging-app-service"
+
+echo "🚀 Applying updated deployment (image v2.0)..."
+kubectl apply -f messaging_app/blue_deployment.yaml
+
+echo ""
+echo "🔄 Starting rolling update..."
+kubectl rollout status deployment/$DEPLOYMENT &
+
+ROLL_PID=$!
+
+echo ""
+echo "🌐 Starting continuous curl to detect downtime (press CTRL+C to stop)..."
+
+# Start background curl loop
+DOWNTIME=0
+(
+  while true; do
+    if ! curl -s http://localhost:8000/ > /dev/null; then
+      echo "❌ Downtime detected!"
+      DOWNTIME=1
+    else
+      echo "✔ App responding normally..."
+    fi
+    sleep 0.3
+  done
+) &
+
+CURL_PID=$!
+
+wait $ROLL_PID
+
+echo ""
+echo "🛑 Stopping curl checks..."
+kill $CURL_PID || true
+
+if [[ "$DOWNTIME" -eq 0 ]]; then
+  echo "🎉 Rolling update completed with ZERO downtime!"
+else
+  echo "⚠ Rolling update completed, but downtime was detected."
+fi
+
+echo ""
+echo "📦 Current pods after rollout:"
+kubectl get pods -o wide
+
+echo ""
+echo "✅ Script completed."

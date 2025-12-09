@@ -6,7 +6,12 @@ metadata:
     app: messaging-app
     version: blue
 spec:
-  replicas: 1
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0       # ensures no downtime
+      maxSurge: 1
   selector:
     matchLabels:
       app: messaging-app
@@ -19,8 +24,7 @@ spec:
     spec:
       containers:
         - name: messaging-app-container
-          # TODO: change this to your real image & tag for the BLUE (current) version
-          image: your-dockerhub-username/messaging-app:v1
+          image: your-dockerhub-username/messaging-app:2.0   # UPDATED VERSION
           ports:
             - containerPort: 8000
           env:
