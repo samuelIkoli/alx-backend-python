@@ -1,161 +1,65 @@
-/**
- * Jenkins Pipeline for the Django Messaging App:
- * - Checkout from GitHub (with credentials)
- * - Install dependencies
- * - Run pytest + publish JUnit report
- * - Build Docker image
- * - Push Docker image to Docker Hub
- *
- * Trigger manually from Jenkins UI (no automatic triggers configured).
- */
-
 pipeline {
     agent any
 
-    options {
-        timestamps()
-        ansiColor('xterm')
-    }
-
     environment {
-        // -----------------------------
-        // GitHub settings
-        // -----------------------------
-        GIT_REPO_URL = 'https://github.com/<YOUR_GITHUB_USERNAME>/alx-backend-python.git'
-        GIT_BRANCH   = 'main'
-        GIT_CRED_ID  = 'github-credentials'
-
-        // App directory inside repo
-        APP_DIR      = 'messaging_app'
-
-        // -----------------------------
-        // Test report output
-        // -----------------------------
-        REPORT_DIR   = 'test-reports'
-        JUNIT_XML    = 'pytest-report.xml'
-
-        // -----------------------------
-        // Docker / Docker Hub settings
-        // -----------------------------
-        DOCKERHUB_CRED_ID = 'dockerhub-credentials'   // Jenkins Credentials ID
-        DOCKERHUB_USER    = '<YOUR_DOCKERHUB_USERNAME>'
-        IMAGE_NAME        = 'messaging-app'
-
-        // Use build number for versioned tags; also push latest
-        IMAGE_TAG         = "${BUILD_NUMBER}"
-        FULL_IMAGE_TAG    = "${DOCKERHUB_USER}/${IMAGE_NAME}:${IMAGE_TAG}"
-        FULL_IMAGE_LATEST = "${DOCKERHUB_USER}/${IMAGE_NAME}:latest"
+        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials-id' // Replace with your Jenkins Docker Hub credentials ID
+        DOCKER_IMAGE = 'your-dockerhub-username/messaging_app:latest' // Replace with your Docker Hub repo
     }
 
     stages {
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${env.GIT_BRANCH}"]],
-                    userRemoteConfigs: [[
-                        url: env.GIT_REPO_URL,
-                        credentialsId: env.GIT_CRED_ID
-                    ]]
-                ])
+                git branch: 'main',
+                    credentialsId: 'my-github-credentials-id', // Replace with your Jenkins GitHub credentials ID
+                    url: 'https://github.com/blaemedia/alx-backend-python.git'
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                dir(env.APP_DIR) {
-                    sh '''
-                        set -eux
-                        python3 --version
-                        pip3 --version
+                bat '''
+                python -m venv venv
+                venv\\Scripts\\activate
+                pip3 install --upgrade pip
+                pip3 install -r messaging_app/requirements.txt
+                '''
+            }
+        }
 
-                        python3 -m venv .venv
-                        . .venv/bin/activate
+        stage('Run Tests') {
+            steps {
+                bat '''
+                venv\\Scripts\\activate
+                pytest --junitxml=report.xml
+                '''
+            }
+        }
 
-                        pip install --upgrade pip
-                        if [ -f requirements.txt ]; then
-                          pip install -r requirements.txt
-                        fi
-
-                        pip install pytest pytest-cov
-                    '''
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    bat "docker build -t ${DOCKER_IMAGE} ."
                 }
             }
         }
 
-        stage('Run Tests (pytest)') {
+        stage('Push Docker Image') {
             steps {
-                dir(env.APP_DIR) {
-                    sh '''
-                        set -eux
-                        . .venv/bin/activate
-
-                        mkdir -p "${REPORT_DIR}"
-                        pytest -q --junitxml="${REPORT_DIR}/${JUNIT_XML}"
-                    '''
-                }
-            }
-        }
-
-        stage('Publish Report') {
-            steps {
-                dir(env.APP_DIR) {
-                    junit allowEmptyResults: false, testResults: "${REPORT_DIR}/${JUNIT_XML}"
-                    archiveArtifacts artifacts: "${REPORT_DIR}/*", fingerprint: true
-                }
-            }
-        }
-
-        stage('Docker Build') {
-            steps {
-                dir(env.APP_DIR) {
-                    sh '''
-                        set -eux
-                        docker --version
-
-                        # Build from the Dockerfile inside messaging_app/
-                        docker build -t "${FULL_IMAGE_TAG}" .
-                        docker tag "${FULL_IMAGE_TAG}" "${FULL_IMAGE_LATEST}"
-
-                        docker images | head -n 20
-                    '''
-                }
-            }
-        }
-
-        stage('Docker Push') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: env.DOCKERHUB_CRED_ID,
-                    usernameVariable: 'DH_USER',
-                    passwordVariable: 'DH_PASS'
-                )]) {
-                    sh '''
-                        set -eux
-
-                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
-
-                        docker push "${FULL_IMAGE_TAG}"
-                        docker push "${FULL_IMAGE_LATEST}"
-
-                        docker logout
-                    '''
+                script {
+                    withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        bat """
+                        echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                        docker push ${DOCKER_IMAGE}
+                        """
+                    }
                 }
             }
         }
     }
 
     post {
-        success {
-            echo "✅ Build + tests passed and Docker image pushed:"
-            echo " - ${env.FULL_IMAGE_TAG}"
-            echo " - ${env.FULL_IMAGE_LATEST}"
-        }
-        failure {
-            echo "❌ Pipeline failed. Check logs and test reports."
-        }
         always {
-            echo "Pipeline finished."
+            junit 'report.xml'
         }
     }
 }
